@@ -1,0 +1,23 @@
+<Window x:Class="TimeClient.TimeDisplayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Time Display" Height="400" Width="1000"
+        WindowStyle="None" ResizeMode="NoResize"
+        Background="#000000" Topmost="True"
+        WindowStartupLocation="CenterScreen"
+        AllowsTransparency="False">
+    <Grid>
+        <Viewbox Stretch="Uniform">
+            <TextBlock x:Name="TimeDisplayTextBlock" 
+                       Text="--:--:--" 
+                       FontFamily="Consolas"
+                       FontSize="200"
+                       Foreground="#00FF00"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"/>
+        </Viewbox>
+    </Grid>
+</Window>
+

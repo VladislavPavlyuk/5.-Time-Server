@@ -5,9 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace TimeClient
@@ -20,25 +17,11 @@ namespace TimeClient
         private bool _isConnected = false;
         private DispatcherTimer? _updateTimer;
         private string _currentTime = "--:--:--";
+        private TimeDisplayWindow? _timeDisplayWindow;
 
         public MainWindow()
         {
             InitializeComponent();
-            Loaded += MainWindow_Loaded;
-        }
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Ensure canvas is properly sized
-            TimeCanvas.SizeChanged += TimeCanvas_SizeChanged;
-        }
-
-        private void TimeCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (_isConnected && !string.IsNullOrEmpty(_currentTime) && _currentTime != "--:--:--")
-            {
-                DrawTimeRegion(_currentTime);
-            }
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -90,6 +73,10 @@ namespace TimeClient
                 ServerPortTextBox.IsEnabled = false;
                 ClientPortTextBox.IsEnabled = false;
 
+                // Create and show time display window
+                _timeDisplayWindow = new TimeDisplayWindow();
+                _timeDisplayWindow.Show();
+
                 // Start receiving messages
                 _ = Task.Run(ReceiveMessages);
 
@@ -133,7 +120,10 @@ namespace TimeClient
 
                 _currentTime = "--:--:--";
                 TimeTextBlock.Text = _currentTime;
-                TimeCanvas.Children.Clear();
+
+                // Close time display window
+                _timeDisplayWindow?.Close();
+                _timeDisplayWindow = null;
             }
             catch (Exception ex)
             {
@@ -160,7 +150,7 @@ namespace TimeClient
                         Dispatcher.Invoke(() =>
                         {
                             TimeTextBlock.Text = _currentTime;
-                            DrawTimeRegion(_currentTime);
+                            _timeDisplayWindow?.UpdateTime(_currentTime);
                         });
                     }
                 }
@@ -183,184 +173,9 @@ namespace TimeClient
             // This timer ensures UI updates smoothly
         }
 
-        private void DrawTimeRegion(string timeString)
-        {
-            TimeCanvas.Children.Clear();
-
-            if (string.IsNullOrEmpty(timeString) || timeString == "--:--:--")
-                return;
-
-            double canvasWidth = TimeCanvas.ActualWidth;
-            double canvasHeight = TimeCanvas.ActualHeight;
-
-            if (canvasWidth <= 0 || canvasHeight <= 0)
-                return;
-
-            // Create a path geometry for the time trajectory
-            PathGeometry geometry = new PathGeometry();
-            PathFigure figure = new PathFigure();
-            
-            double centerX = canvasWidth / 2;
-            double centerY = canvasHeight / 2;
-            double radius = Math.Min(canvasWidth, canvasHeight) * 0.35;
-
-            // Parse time
-            string[] parts = timeString.Split(':');
-            if (parts.Length != 3) return;
-
-            if (!int.TryParse(parts[0], out int hours) ||
-                !int.TryParse(parts[1], out int minutes) ||
-                !int.TryParse(parts[2], out int seconds))
-                return;
-
-            // Normalize values
-            double hourAngle = (hours % 12) * 30 + minutes * 0.5 - 90; // -90 to start at top
-            double minuteAngle = minutes * 6 + seconds * 0.1 - 90;
-            double secondAngle = seconds * 6 - 90;
-
-            // Convert to radians
-            double hourRad = hourAngle * Math.PI / 180;
-            double minuteRad = minuteAngle * Math.PI / 180;
-            double secondRad = secondAngle * Math.PI / 180;
-
-            // Calculate hour hand position
-            double hourX = centerX + radius * 0.6 * Math.Cos(hourRad);
-            double hourY = centerY + radius * 0.6 * Math.Sin(hourRad);
-
-            // Calculate minute hand position
-            double minuteX = centerX + radius * 0.8 * Math.Cos(minuteRad);
-            double minuteY = centerY + radius * 0.8 * Math.Sin(minuteRad);
-
-            // Calculate second hand position
-            double secondX = centerX + radius * Math.Cos(secondRad);
-            double secondY = centerY + radius * Math.Sin(secondRad);
-
-            // Create trajectory path: center -> hour -> minute -> second -> back to center (closed region)
-            figure.StartPoint = new Point(centerX, centerY);
-            figure.IsClosed = true;
-            figure.IsFilled = true;
-            
-            LineSegment hourSegment = new LineSegment(new Point(hourX, hourY), true);
-            LineSegment minuteSegment = new LineSegment(new Point(minuteX, minuteY), true);
-            LineSegment secondSegment = new LineSegment(new Point(secondX, secondY), true);
-            
-            figure.Segments.Add(hourSegment);
-            figure.Segments.Add(minuteSegment);
-            figure.Segments.Add(secondSegment);
-
-            geometry.Figures.Add(figure);
-
-            // Create filled region from geometry (trajectory region)
-            Path trajectoryPath = new Path
-            {
-                Data = geometry,
-                Fill = new SolidColorBrush(Color.FromArgb(80, 0, 255, 255)), // Semi-transparent cyan fill
-                Stroke = new SolidColorBrush(Colors.Cyan),
-                StrokeThickness = 2,
-                StrokeLineJoin = PenLineJoin.Round,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round
-            };
-
-            TimeCanvas.Children.Add(trajectoryPath);
-
-            // Also draw the trajectory line for better visibility
-            PathGeometry lineGeometry = new PathGeometry();
-            PathFigure lineFigure = new PathFigure
-            {
-                StartPoint = new Point(centerX, centerY),
-                IsClosed = false
-            };
-            lineFigure.Segments.Add(new LineSegment(new Point(hourX, hourY), true));
-            lineFigure.Segments.Add(new LineSegment(new Point(minuteX, minuteY), true));
-            lineFigure.Segments.Add(new LineSegment(new Point(secondX, secondY), true));
-            lineGeometry.Figures.Add(lineFigure);
-
-            Path trajectoryLine = new Path
-            {
-                Data = lineGeometry,
-                Stroke = new SolidColorBrush(Colors.Cyan),
-                StrokeThickness = 3,
-                StrokeLineJoin = PenLineJoin.Round,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round
-            };
-
-            TimeCanvas.Children.Add(trajectoryLine);
-
-            // Draw clock face
-            DrawClockFace(centerX, centerY, radius);
-
-            // Draw hands
-            DrawHand(centerX, centerY, hourX, hourY, Colors.White, 4);
-            DrawHand(centerX, centerY, minuteX, minuteY, Colors.LightBlue, 3);
-            DrawHand(centerX, centerY, secondX, secondY, Colors.Red, 2);
-
-            // Draw center point
-            Ellipse centerPoint = new Ellipse
-            {
-                Width = 10,
-                Height = 10,
-                Fill = new SolidColorBrush(Colors.White)
-            };
-            Canvas.SetLeft(centerPoint, centerX - 5);
-            Canvas.SetTop(centerPoint, centerY - 5);
-            TimeCanvas.Children.Add(centerPoint);
-
-            // Draw time text
-            TextBlock timeText = new TextBlock
-            {
-                Text = timeString,
-                FontSize = 24,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White),
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            Canvas.SetLeft(timeText, centerX - 50);
-            Canvas.SetTop(timeText, centerY + radius + 20);
-            TimeCanvas.Children.Add(timeText);
-        }
-
-        private void DrawClockFace(double centerX, double centerY, double radius)
-        {
-            // Draw hour markers
-            for (int i = 0; i < 12; i++)
-            {
-                double angle = (i * 30 - 90) * Math.PI / 180;
-                double x1 = centerX + (radius - 10) * Math.Cos(angle);
-                double y1 = centerY + (radius - 10) * Math.Sin(angle);
-                double x2 = centerX + radius * Math.Cos(angle);
-                double y2 = centerY + radius * Math.Sin(angle);
-
-                Line marker = new Line
-                {
-                    X1 = x1,
-                    Y1 = y1,
-                    X2 = x2,
-                    Y2 = y2,
-                    Stroke = new SolidColorBrush(Colors.Gray),
-                    StrokeThickness = 2
-                };
-                TimeCanvas.Children.Add(marker);
-            }
-        }
-
-        private void DrawHand(double x1, double y1, double x2, double y2, Color color, double thickness)
-        {
-            Line hand = new Line
-            {
-                X1 = x1,
-                Y1 = y1,
-                X2 = x2,
-                Y2 = y2,
-                Stroke = new SolidColorBrush(color),
-                StrokeThickness = thickness
-            };
-            TimeCanvas.Children.Add(hand);
-        }
-
         protected override void OnClosed(EventArgs e)
         {
+            _timeDisplayWindow?.Close();
             Disconnect();
             base.OnClosed(e);
         }
