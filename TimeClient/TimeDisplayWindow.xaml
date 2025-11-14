@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Time Display" Height="400" Width="1000"
         WindowStyle="None" ResizeMode="NoResize"
-        Background="#000000" Topmost="True"
+        Background="Transparent" Topmost="True"
         WindowStartupLocation="CenterScreen"
-        AllowsTransparency="False">
+        AllowsTransparency="True">
     <Grid>
         <Viewbox Stretch="Uniform">
             <TextBlock x:Name="TimeDisplayTextBlock" 

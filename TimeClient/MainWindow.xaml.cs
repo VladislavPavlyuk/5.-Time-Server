@@ -22,6 +22,23 @@ namespace TimeClient
         public MainWindow()
         {
             InitializeComponent();
+            
+            // Set window icon
+            try
+            {
+                using (var stream = System.Windows.Application.GetResourceStream(
+                    new Uri("pack://application:,,,/app.ico"))?.Stream)
+                {
+                    if (stream != null)
+                    {
+                        this.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(stream);
+                    }
+                }
+            }
+            catch
+            {
+                // Icon file not found or invalid, continue without icon
+            }
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
